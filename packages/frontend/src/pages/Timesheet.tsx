@@ -91,9 +91,9 @@ export function Timesheet() {
     refresh,
   } = useTimesheet({ weekStartDate });
 
-  // Load task codes for the timeline view
+  // Load task codes for the timeline view (wait until timesheet loaded to avoid double-fetch)
   const { taskCodes, loading: taskCodesLoading } = useTaskCodesForEmployee(
-    user?.id,
+    timesheet ? user?.id : undefined,
     timesheet?.weekStartDate
   );
 
