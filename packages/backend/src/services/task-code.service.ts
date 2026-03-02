@@ -152,22 +152,26 @@ export async function listTaskCodes(
     conditions.push(or(like(taskCodes.code, searchPattern), like(taskCodes.name, searchPattern)));
   }
 
+  // Fetch task codes with their rates in a single query (avoids N+1)
   const taskCodeList = await db.query.taskCodes.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
     orderBy: [asc(taskCodes.code)],
+    with: {
+      rates: {
+        orderBy: [desc(taskCodeRates.effectiveDate)],
+      },
+    },
   });
 
-  // Get current rates for all task codes
+  // Resolve current rate from the pre-loaded rates (no additional queries)
   const today = new Date().toISOString().split('T')[0]!;
-  const results: TaskCodeWithCurrentRate[] = [];
-
-  for (const tc of taskCodeList) {
-    const currentRate = await getEffectiveRate(tc.id, today);
-    results.push({
+  const results: TaskCodeWithCurrentRate[] = taskCodeList.map((tc) => {
+    const currentRate = tc.rates.find((r) => r.effectiveDate <= today);
+    return {
       ...toPublicTaskCode(tc),
-      currentRate: currentRate ?? 0,
-    });
-  }
+      currentRate: currentRate ? parseFloat(currentRate.hourlyRate) : 0,
+    };
+  });
 
   return {
     taskCodes: results,
