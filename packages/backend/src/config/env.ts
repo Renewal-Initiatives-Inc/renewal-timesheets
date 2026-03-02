@@ -9,8 +9,8 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:5173'),
 
   // Zitadel OIDC Configuration
-  ZITADEL_ISSUER: z.string().url('ZITADEL_ISSUER must be a valid URL'),
-  ZITADEL_PROJECT_ID: z.string().min(1, 'ZITADEL_PROJECT_ID is required for JWT audience validation'),
+  ZITADEL_ISSUER: z.string().trim().url('ZITADEL_ISSUER must be a valid URL'),
+  ZITADEL_PROJECT_ID: z.string().trim().min(1, 'ZITADEL_PROJECT_ID is required for JWT audience validation'),
 
   // Email (Postmark)
   POSTMARK_API_KEY: z.string().optional(),
@@ -23,7 +23,7 @@ const envSchema = z.object({
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
 
   // Encryption
-  DOB_ENCRYPTION_KEY: z.string().length(64, 'DOB_ENCRYPTION_KEY must be 64 hex chars (32 bytes)'),
+  DOB_ENCRYPTION_KEY: z.string().trim().length(64, 'DOB_ENCRYPTION_KEY must be 64 hex chars (32 bytes)'),
 
   // Cron job security
   CRON_SECRET: z.string().optional(),
