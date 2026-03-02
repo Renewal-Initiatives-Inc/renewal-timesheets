@@ -22,6 +22,16 @@ try {
 }
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
+  // Temporary debug: show which required env vars are present
+  if (req.url?.includes('env-debug')) {
+    const required = ['ZITADEL_ISSUER', 'ZITADEL_PROJECT_ID', 'DOB_ENCRYPTION_KEY', 'DATABASE_URL', 'FRONTEND_URL', 'NODE_ENV'];
+    const envStatus = Object.fromEntries(
+      required.map((k) => [k, process.env[k] ? `set (${process.env[k]!.length} chars)` : 'MISSING'])
+    );
+    res.status(200).json({ envStatus, vercel: process.env['VERCEL'], region: process.env['VERCEL_REGION'] });
+    return;
+  }
+
   if (initError) {
     console.error('[api/index] Returning init error to client');
     res.status(500).json({
