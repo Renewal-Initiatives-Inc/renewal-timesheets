@@ -1,6 +1,7 @@
 import { eq, and, like, or, lte, desc, asc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import type { TaskCode, TaskCodeRate, SupervisorRequired } from '@renewal/types';
+import { decryptDob } from '../utils/encryption.js';
 
 const { taskCodes, taskCodeRates, employees } = schema;
 
@@ -437,7 +438,8 @@ export async function getTaskCodesForEmployee(
 
   // Calculate employee's age as of the specified date (or today)
   const referenceDate = asOfDate ? new Date(asOfDate + 'T00:00:00') : new Date();
-  const birthDate = new Date(employee.dateOfBirth + 'T00:00:00');
+  const dob = decryptDob(employee.dateOfBirth);
+  const birthDate = new Date(dob + 'T00:00:00');
   let age = referenceDate.getFullYear() - birthDate.getFullYear();
   const monthDiff = referenceDate.getMonth() - birthDate.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birthDate.getDate())) {

@@ -50,11 +50,15 @@ interface ZitadelUserInfo {
 async function fetchUserInfo(accessToken: string): Promise<ZitadelUserInfo | null> {
   if (!ZITADEL_ISSUER) return null;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
   try {
     const response = await fetch(`${ZITADEL_ISSUER}/oidc/v1/userinfo`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -64,8 +68,14 @@ async function fetchUserInfo(accessToken: string): Promise<ZitadelUserInfo | nul
 
     return (await response.json()) as ZitadelUserInfo;
   } catch (error) {
-    console.error('Error fetching userinfo:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('fetchUserInfo timed out after 5s');
+    } else {
+      console.error('Error fetching userinfo:', error);
+    }
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -193,30 +203,34 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    // Get email from token or fetch from userinfo endpoint
     let email = zitadelPayload.email;
     let name = zitadelPayload.name;
 
-    if (!email) {
-      // Email not in access token - fetch from userinfo endpoint
-      const userInfo = await fetchUserInfo(token);
-      if (userInfo) {
-        email = userInfo.email;
-        name = name || userInfo.name;
+    // Fast path: look up employee by zitadel_id first (no network call)
+    let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
+
+    // Slow path: only fetch userinfo if employee not found (first-time linking)
+    if (!employee) {
+      if (!email) {
+        const userInfo = await fetchUserInfo(token);
+        if (userInfo) {
+          email = userInfo.email;
+          name = name || userInfo.name;
+        }
+      }
+      if (email) {
+        employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
       }
     }
 
     // Attach Zitadel user info to request
     req.zitadelUser = {
       sub: zitadelPayload.sub!,
-      email,
+      email: email || employee?.email,
       name,
       roles,
       isAdmin,
     };
-
-    // Best-effort employee record lookup (non-blocking)
-    const employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
 
     if (employee) {
       // Attach employee to request, override isSupervisor with admin role from Zitadel
@@ -295,27 +309,33 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     const roles = Object.keys(rolesClaim);
     const isAdmin = roles.includes('admin');
 
-    // Get email from token or fetch from userinfo endpoint
     let email = zitadelPayload.email;
     let name = zitadelPayload.name;
 
-    if (!email) {
-      const userInfo = await fetchUserInfo(token);
-      if (userInfo) {
-        email = userInfo.email;
-        name = name || userInfo.name;
+    // Fast path: look up employee by zitadel_id first (no network call)
+    let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
+
+    // Slow path: only fetch userinfo if employee not found (first-time linking)
+    if (!employee) {
+      if (!email) {
+        const userInfo = await fetchUserInfo(token);
+        if (userInfo) {
+          email = userInfo.email;
+          name = name || userInfo.name;
+        }
+      }
+      if (email) {
+        employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
       }
     }
 
     req.zitadelUser = {
       sub: zitadelPayload.sub!,
-      email,
+      email: email || employee?.email,
       name,
       roles,
       isAdmin,
     };
-
-    const employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
 
     if (employee && employee.status === 'active') {
       req.employee = {
