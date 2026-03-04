@@ -44,6 +44,7 @@ export const portalEmployees = pgTable('employees', {
   annualSalary: numeric('annual_salary', { precision: 12, scale: 2 }),
   expectedAnnualHours: integer('expected_annual_hours'),
   exemptStatus: text('exempt_status'), // 'EXEMPT' | 'NON_EXEMPT'
+  dateOfBirth: text('date_of_birth'),
   isActive: boolean('is_active'),
   createdAt: timestamp('created_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
