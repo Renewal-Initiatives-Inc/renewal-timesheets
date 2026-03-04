@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { getPendingReviewCount, ApiRequestError } from '../api/client.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 interface ReviewCountContextValue {
   count: number;
@@ -11,8 +12,9 @@ interface ReviewCountContextValue {
 const ReviewCountContext = createContext<ReviewCountContextValue | null>(null);
 
 export function ReviewCountProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isSupervisor } = useAuth();
   const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCount = useCallback(async () => {
@@ -33,8 +35,12 @@ export function ReviewCountProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchCount();
-  }, [fetchCount]);
+    if (isAuthenticated && isSupervisor) {
+      fetchCount();
+    } else {
+      setCount(0);
+    }
+  }, [isAuthenticated, isSupervisor, fetchCount]);
 
   return (
     <ReviewCountContext.Provider value={{ count, loading, error, refresh: fetchCount }}>

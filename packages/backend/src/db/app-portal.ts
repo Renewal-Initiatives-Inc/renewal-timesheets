@@ -36,6 +36,8 @@ const { Pool } = pg;
 export const portalEmployees = pgTable('employees', {
   id: uuid('id').primaryKey(),
   zitadelUserId: text('zitadel_user_id'),
+  name: varchar('name', { length: 255 }),
+  email: varchar('email', { length: 255 }),
   firstName: varchar('first_name', { length: 255 }),
   lastName: varchar('last_name', { length: 255 }),
   compensationType: text('compensation_type'), // 'PER_TASK' | 'SALARIED'

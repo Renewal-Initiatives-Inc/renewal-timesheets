@@ -64,6 +64,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setEmployeeLoading(true);
       try {
         const response = await getCurrentUser();
+        if (!response.employee) {
+          setError('No employee account found. Contact your administrator.');
+          setEmployee(null);
+          return;
+        }
         setEmployee(response.employee);
         setError(null);
       } catch (err) {

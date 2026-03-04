@@ -5,6 +5,7 @@ import { db } from '../db/index.js';
 import { employees } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { decryptDob } from '../utils/encryption.js';
+import { portalDb, portalEmployees } from '../db/app-portal.js';
 
 // Zitadel configuration
 // Trim to remove any accidental newlines from environment variables (common with Vercel)
@@ -44,8 +45,37 @@ interface ZitadelUserInfo {
 }
 
 /**
+ * Look up a user's email from app-portal's employees table via Zitadel user ID.
+ * This is the canonical User→Employee mapping (fast, DB-only, no network call).
+ */
+async function lookupEmailFromPortal(zitadelSub: string): Promise<{ email?: string; name?: string } | null> {
+  if (!portalDb) return null;
+
+  try {
+    const [portalUser] = await portalDb
+      .select({
+        email: portalEmployees.email,
+        name: portalEmployees.name,
+      })
+      .from(portalEmployees)
+      .where(eq(portalEmployees.zitadelUserId, zitadelSub))
+      .limit(1);
+
+    if (!portalUser) return null;
+
+    return {
+      email: portalUser.email || undefined,
+      name: portalUser.name || undefined,
+    };
+  } catch (error) {
+    console.error('Failed to look up user from app-portal:', error);
+    return null;
+  }
+}
+
+/**
  * Fetch user info from Zitadel userinfo endpoint.
- * Used when email is not included in the access token.
+ * Last-resort fallback when app-portal lookup doesn't yield an email.
  */
 async function fetchUserInfo(accessToken: string): Promise<ZitadelUserInfo | null> {
   if (!ZITADEL_ISSUER) return null;
@@ -209,18 +239,26 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Fast path: look up employee by zitadel_id first (no network call)
     let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
 
-    // Slow path: only fetch userinfo if employee not found (first-time linking)
-    if (!employee) {
-      if (!email) {
+    // Fallback: employee not found locally — resolve email for auto-linking
+    if (!employee && !email) {
+      // Prefer app-portal DB lookup (fast, reliable, canonical user→employee mapping)
+      const portalUser = await lookupEmailFromPortal(zitadelPayload.sub!);
+      if (portalUser?.email) {
+        email = portalUser.email;
+        name = name || portalUser.name;
+      } else {
+        // Last resort: Zitadel userinfo endpoint (slow, may time out)
         const userInfo = await fetchUserInfo(token);
         if (userInfo) {
           email = userInfo.email;
           name = name || userInfo.name;
         }
       }
-      if (email) {
-        employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
-      }
+    }
+
+    // Try to link by email if we resolved one
+    if (!employee && email) {
+      employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
     }
 
     // Attach Zitadel user info to request
@@ -315,18 +353,23 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     // Fast path: look up employee by zitadel_id first (no network call)
     let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
 
-    // Slow path: only fetch userinfo if employee not found (first-time linking)
-    if (!employee) {
-      if (!email) {
+    // Fallback: resolve email for auto-linking
+    if (!employee && !email) {
+      const portalUser = await lookupEmailFromPortal(zitadelPayload.sub!);
+      if (portalUser?.email) {
+        email = portalUser.email;
+        name = name || portalUser.name;
+      } else {
         const userInfo = await fetchUserInfo(token);
         if (userInfo) {
           email = userInfo.email;
           name = name || userInfo.name;
         }
       }
-      if (email) {
-        employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
-      }
+    }
+
+    if (!employee && email) {
+      employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
     }
 
     req.zitadelUser = {
