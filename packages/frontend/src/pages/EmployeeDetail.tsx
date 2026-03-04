@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useEmployee, useEmployeeActions } from '../hooks/useEmployees.js';
+import { useParams, Link } from 'react-router-dom';
+import { useEmployee } from '../hooks/useEmployees.js';
 import { useDocumentActions } from '../hooks/useDocuments.js';
 import { DocumentationStatus } from '../components/DocumentationStatus.js';
 import { DocumentUpload } from '../components/DocumentUpload.js';
@@ -9,9 +9,7 @@ import './EmployeeDetail.css';
 
 export function EmployeeDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { employee: data, loading, error, refetch } = useEmployee(id);
-  const { archiveEmployee, loading: actionLoading } = useEmployeeActions();
   const {
     uploadDocument,
     markSafetyTrainingComplete,
@@ -21,7 +19,6 @@ export function EmployeeDetail() {
   } = useDocumentActions();
 
   const [showUpload, setShowUpload] = useState<DocumentType | null>(null);
-  const [confirmArchive, setConfirmArchive] = useState(false);
 
   if (loading) {
     return (
@@ -43,15 +40,6 @@ export function EmployeeDetail() {
   }
 
   const { employee, documents, requiredDocuments, documentationStatus } = data;
-
-  const handleArchive = async () => {
-    try {
-      await archiveEmployee(employee.id);
-      navigate('/employees');
-    } catch {
-      // Error handled by hook
-    }
-  };
 
   const handleUpload = async (
     employeeId: string,
@@ -104,46 +92,8 @@ export function EmployeeDetail() {
           <p className="email">{employee.email}</p>
         </div>
         <div className="header-actions">
-          {employee.status === 'active' && (
-            <button
-              onClick={() => setConfirmArchive(true)}
-              className="archive-button"
-              disabled={actionLoading}
-              data-testid="employee-archive-button"
-            >
-              Archive Employee
-            </button>
-          )}
         </div>
       </header>
-
-      {confirmArchive && (
-        <div className="confirm-modal">
-          <div className="confirm-content">
-            <h3>Archive Employee</h3>
-            <p>Are you sure you want to archive {employee.name}?</p>
-            <p className="confirm-warning">
-              This will prevent them from logging in and submitting timesheets.
-            </p>
-            <div className="confirm-actions">
-              <button
-                onClick={() => setConfirmArchive(false)}
-                data-testid="employee-archive-cancel-button"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleArchive}
-                className="confirm-button"
-                disabled={actionLoading}
-                data-testid="employee-archive-confirm-button"
-              >
-                {actionLoading ? 'Archiving...' : 'Archive'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="detail-grid">
         <section className="detail-section">
@@ -161,8 +111,6 @@ export function EmployeeDetail() {
             <dd>
               <span className={`status-badge status-${employee.status}`}>{employee.status}</span>
             </dd>
-            <dt>Role</dt>
-            <dd>{employee.isSupervisor ? 'Supervisor' : 'Employee'}</dd>
             <dt>Member Since</dt>
             <dd>{formatDate(employee.createdAt)}</dd>
           </dl>

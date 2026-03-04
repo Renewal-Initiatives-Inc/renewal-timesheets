@@ -8,9 +8,6 @@ vi.mock('../../db/index.js', () => ({
       employees: {
         findFirst: vi.fn(),
       },
-      sessions: {
-        findFirst: vi.fn(),
-      },
       timesheets: {
         findFirst: vi.fn(),
         findMany: vi.fn(),
@@ -44,7 +41,6 @@ vi.mock('../../db/index.js', () => ({
   },
   schema: {
     employees: {},
-    sessions: {},
     timesheets: {},
     timesheetEntries: {},
     taskCodes: {},
@@ -108,7 +104,6 @@ import app from '../../app.js';
 describe('Timesheets API Routes', () => {
   beforeEach(() => {
     vi.mocked(db.query.employees.findFirst).mockReset();
-    vi.mocked(db.query.sessions.findFirst).mockReset();
     vi.mocked(db.query.timesheets.findFirst).mockReset();
     vi.mocked(db.query.timesheets.findMany).mockReset();
     vi.mocked(db.query.timesheetEntries.findFirst).mockReset();
@@ -118,16 +113,6 @@ describe('Timesheets API Routes', () => {
     vi.mocked(db.insert).mockReset();
     vi.mocked(db.update).mockReset();
     vi.mocked(db.delete).mockReset();
-
-    // Setup default session mock
-    vi.mocked(db.query.sessions.findFirst).mockImplementation(() => {
-      return Promise.resolve({
-        id: 'session-1',
-        employeeId: 'emp-1',
-        expiresAt: new Date(Date.now() + 86400000),
-        revokedAt: null,
-      } as never);
-    });
   });
 
   const testEmployee = {

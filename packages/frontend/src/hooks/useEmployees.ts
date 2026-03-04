@@ -6,8 +6,6 @@ import {
   getDashboardEmployees,
   getDashboardAlerts,
   getDashboardStats,
-  archiveEmployee as archiveEmployeeApi,
-  updateEmployee as updateEmployeeApi,
   ApiRequestError,
 } from '../api/client.js';
 
@@ -161,50 +159,3 @@ export function useDashboard(): UseDashboardResult {
   return { employees, alerts, stats, loading, error, refetch: fetchDashboard };
 }
 
-/**
- * Hook for employee actions (update, archive)
- */
-export function useEmployeeActions() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const updateEmployee = useCallback(
-    async (id: string, data: { name?: string; email?: string }) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await updateEmployeeApi(id, data);
-        return response.employee;
-      } catch (err) {
-        if (err instanceof ApiRequestError) {
-          setError(err.message);
-        } else {
-          setError('Failed to update employee');
-        }
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  const archiveEmployee = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await archiveEmployeeApi(id);
-    } catch (err) {
-      if (err instanceof ApiRequestError) {
-        setError(err.message);
-      } else {
-        setError('Failed to archive employee');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { updateEmployee, archiveEmployee, loading, error };
-}

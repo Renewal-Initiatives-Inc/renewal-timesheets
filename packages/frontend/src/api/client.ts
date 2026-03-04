@@ -2,7 +2,6 @@ import type {
   EmployeePublic,
   EmployeeDetailResponse,
   EmployeeListResponse,
-  UpdateEmployeeRequest,
   DocumentationStatus,
   RequiredDocuments,
   DashboardAlertsResponse,
@@ -287,19 +286,7 @@ export async function getEmployee(id: string): Promise<EmployeeDetailResponse> {
   return apiRequest(`/employees/${id}`);
 }
 
-export async function updateEmployee(
-  id: string,
-  data: UpdateEmployeeRequest
-): Promise<{ employee: EmployeePublic }> {
-  return apiRequest(`/employees/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function archiveEmployee(id: string): Promise<{ message: string }> {
-  return apiRequest(`/employees/${id}`, { method: 'DELETE' });
-}
+// updateEmployee and archiveEmployee removed — employee data managed in app-portal
 
 export async function getEmployeeDocuments(id: string): Promise<{ documents: EmployeeDocument[] }> {
   return apiRequest(`/employees/${id}/documents`);

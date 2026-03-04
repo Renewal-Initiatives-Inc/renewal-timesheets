@@ -42,91 +42,11 @@ export interface EmployeePublic {
 }
 
 /**
- * Login request payload.
- */
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-/**
- * Login response with JWT token and employee info.
- */
-export interface LoginResponse {
-  token: string;
-  employee: EmployeePublic;
-  requiresPasswordChange?: boolean;
-}
-
-/**
- * Register request payload (supervisor only).
- */
-export interface RegisterRequest {
-  name: string;
-  email: string;
-  dateOfBirth: string;
-  isSupervisor?: boolean;
-  tempPassword: string;
-}
-
-/**
- * Register response with created employee.
- */
-export interface RegisterResponse {
-  message: string;
-  employee: EmployeePublic;
-}
-
-/**
- * Password reset request payload.
- */
-export interface PasswordResetRequest {
-  email: string;
-}
-
-/**
- * Password reset token validation request.
- */
-export interface PasswordResetValidateRequest {
-  token: string;
-}
-
-/**
- * Password reset token validation response.
- */
-export interface PasswordResetValidateResponse {
-  valid: boolean;
-  email?: string;
-}
-
-/**
- * Password reset completion request.
- */
-export interface PasswordResetCompleteRequest {
-  token: string;
-  newPassword: string;
-}
-
-/**
  * Current user response.
  */
 export interface MeResponse {
   employee: EmployeePublic;
 }
-
-/**
- * Auth error codes.
- */
-export type AuthErrorCode =
-  | 'INVALID_CREDENTIALS'
-  | 'ACCOUNT_LOCKED'
-  | 'PASSWORD_TOO_WEAK'
-  | 'EMAIL_EXISTS'
-  | 'EMPLOYEE_NOT_FOUND'
-  | 'INVALID_TOKEN'
-  | 'TOKEN_EXPIRED'
-  | 'TOKEN_USED'
-  | 'AGE_TOO_YOUNG';
 
 // ============================================================================
 // Employee Management Types
@@ -188,27 +108,8 @@ export interface EmployeeListResponse {
   employees: EmployeeWithDocStatus[];
 }
 
-/**
- * Employee update request.
- */
-export interface UpdateEmployeeRequest {
-  name?: string;
-  email?: string;
-}
-
-/**
- * Employee update response.
- */
-export interface UpdateEmployeeResponse {
-  employee: EmployeePublic;
-}
-
-/**
- * Archive employee response.
- */
-export interface ArchiveEmployeeResponse {
-  message: string;
-}
+// UpdateEmployeeRequest, UpdateEmployeeResponse, ArchiveEmployeeResponse removed
+// — employee data managed in app-portal
 
 // ============================================================================
 // Document Management Types

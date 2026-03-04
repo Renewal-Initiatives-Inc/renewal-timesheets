@@ -8,9 +8,6 @@ vi.mock('../../db/index.js', () => ({
       employees: {
         findFirst: vi.fn(),
       },
-      sessions: {
-        findFirst: vi.fn(),
-      },
       taskCodes: {
         findFirst: vi.fn(),
         findMany: vi.fn(),
@@ -35,7 +32,6 @@ vi.mock('../../db/index.js', () => ({
   },
   schema: {
     employees: {},
-    sessions: {},
     taskCodes: {},
     taskCodeRates: {},
   },
@@ -78,23 +74,12 @@ describe('Task Codes API Routes', () => {
   beforeEach(() => {
     // Reset all mocks including their implementation queues
     vi.mocked(db.query.employees.findFirst).mockReset();
-    vi.mocked(db.query.sessions.findFirst).mockReset();
     vi.mocked(db.query.taskCodes.findFirst).mockReset();
     vi.mocked(db.query.taskCodes.findMany).mockReset();
     vi.mocked(db.query.taskCodeRates.findFirst).mockReset();
     vi.mocked(db.query.taskCodeRates.findMany).mockReset();
     vi.mocked(db.insert).mockReset();
     vi.mocked(db.update).mockReset();
-
-    // Setup default session mock - use mockImplementation for persistent behavior
-    vi.mocked(db.query.sessions.findFirst).mockImplementation(() => {
-      return Promise.resolve({
-        id: 'session-1',
-        employeeId: 'emp-supervisor',
-        expiresAt: new Date(Date.now() + 86400000),
-        revokedAt: null,
-      } as never);
-    });
   });
 
   const supervisorUser = {
@@ -310,12 +295,6 @@ describe('Task Codes API Routes', () => {
 
     it('should return 403 for non-supervisor', async () => {
       vi.mocked(db.query.employees.findFirst).mockResolvedValueOnce(regularUser as never);
-      vi.mocked(db.query.sessions.findFirst).mockResolvedValueOnce({
-        id: 'session-2',
-        employeeId: 'emp-regular',
-        expiresAt: new Date(Date.now() + 86400000),
-        revokedAt: null,
-      } as never);
 
       const response = await request(app)
         .post('/api/task-codes')
@@ -437,12 +416,6 @@ describe('Task Codes API Routes', () => {
 
     it('should return 403 for non-supervisor', async () => {
       vi.mocked(db.query.employees.findFirst).mockResolvedValueOnce(regularUser as never);
-      vi.mocked(db.query.sessions.findFirst).mockResolvedValueOnce({
-        id: 'session-2',
-        employeeId: 'emp-regular',
-        expiresAt: new Date(Date.now() + 86400000),
-        revokedAt: null,
-      } as never);
 
       const response = await request(app)
         .patch('/api/task-codes/1')

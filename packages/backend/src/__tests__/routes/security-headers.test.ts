@@ -23,8 +23,6 @@ vi.mock('../../db/index.js', () => ({
   db: {
     query: {
       employees: { findFirst: vi.fn() },
-      sessions: { findFirst: vi.fn() },
-      passwordResetTokens: { findFirst: vi.fn() },
     },
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: vi.fn() })) })),
     update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn() })) })),
@@ -32,8 +30,6 @@ vi.mock('../../db/index.js', () => ({
   },
   schema: {
     employees: {},
-    sessions: {},
-    passwordResetTokens: {},
   },
 }));
 

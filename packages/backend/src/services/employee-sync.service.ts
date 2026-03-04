@@ -152,7 +152,6 @@ export async function syncEmployeeFromPortal(
       name: portalName,
       email: portalEmail.toLowerCase(),
       dateOfBirth: localDob,
-      isSupervisor: false, // always false — derived from Zitadel role
       status: portalStatus as 'active' | 'archived',
       zitadelId: zitadelSub,
     })

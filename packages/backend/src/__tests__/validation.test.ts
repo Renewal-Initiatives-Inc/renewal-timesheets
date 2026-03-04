@@ -1,48 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { updateEmployeeSchema, employeeListQuerySchema } from '../validation/employee.schema.js';
+import { employeeListQuerySchema } from '../validation/employee.schema.js';
 import { documentUploadSchema, safetyTrainingSchema } from '../validation/document.schema.js';
 
 describe('Validation Schemas', () => {
-  describe('updateEmployeeSchema', () => {
-    it('should accept valid name update', () => {
-      const result = updateEmployeeSchema.safeParse({ name: 'John Doe' });
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept valid email update', () => {
-      const result = updateEmployeeSchema.safeParse({ email: 'john@example.com' });
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept both name and email', () => {
-      const result = updateEmployeeSchema.safeParse({
-        name: 'John Doe',
-        email: 'john@example.com',
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept empty object (no updates)', () => {
-      const result = updateEmployeeSchema.safeParse({});
-      expect(result.success).toBe(true);
-    });
-
-    it('should reject invalid email format', () => {
-      const result = updateEmployeeSchema.safeParse({ email: 'not-an-email' });
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject empty name', () => {
-      const result = updateEmployeeSchema.safeParse({ name: '' });
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject name over 255 characters', () => {
-      const result = updateEmployeeSchema.safeParse({ name: 'a'.repeat(256) });
-      expect(result.success).toBe(false);
-    });
-  });
-
   describe('employeeListQuerySchema', () => {
     it('should default status to active', () => {
       const result = employeeListQuerySchema.parse({});

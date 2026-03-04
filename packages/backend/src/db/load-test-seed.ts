@@ -143,11 +143,11 @@ async function loadTestSeed() {
     process.exit(1);
   }
 
-  // Get existing supervisor for document uploads
+  // Get existing supervisor for document uploads (find by seed email)
   const supervisor = await db
     .select()
     .from(employees)
-    .where(eq(employees.isSupervisor, true))
+    .where(eq(employees.email, 'sarah.supervisor@renewal.org'))
     .limit(1);
 
   if (supervisor.length === 0) {
@@ -180,8 +180,6 @@ async function loadTestSeed() {
       name,
       email: `loadtest.employee${i + 1}@renewal.org`,
       dateOfBirth: dobForAge(age),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     });
   }
 

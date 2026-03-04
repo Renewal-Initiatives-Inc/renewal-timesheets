@@ -81,14 +81,12 @@ describe.skipIf(shouldSkip)('Database Schema Integration', () => {
           name: 'Test Supervisor',
           email: testEmail('supervisor'),
           dateOfBirth: '1985-01-15',
-          isSupervisor: true,
         })
         .returning();
 
       expect(supervisor).toBeDefined();
       expect(supervisor!.id).toBeDefined();
       expect(supervisor!.name).toBe('Test Supervisor');
-      expect(supervisor!.isSupervisor).toBe(true);
       expect(supervisor!.status).toBe('active');
       supervisorId = supervisor!.id;
     });
@@ -100,12 +98,10 @@ describe.skipIf(shouldSkip)('Database Schema Integration', () => {
           name: 'Test Minor',
           email: testEmail('minor'),
           dateOfBirth: '2010-06-15',
-          isSupervisor: false,
         })
         .returning();
 
       expect(employee).toBeDefined();
-      expect(employee!.isSupervisor).toBe(false);
       employeeId = employee!.id;
     });
 

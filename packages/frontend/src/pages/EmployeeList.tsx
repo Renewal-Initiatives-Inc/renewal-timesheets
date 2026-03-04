@@ -84,7 +84,6 @@ export function EmployeeList() {
                   <Link to={`/employees/${employee.id}`} className="employee-name">
                     {employee.name}
                   </Link>
-                  {employee.isSupervisor && <span className="supervisor-badge">Supervisor</span>}
                 </td>
                 <td className="email-cell">{employee.email}</td>
                 <td>{employee.age}</td>

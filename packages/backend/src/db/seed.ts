@@ -56,75 +56,59 @@ async function seed() {
       name: 'Sarah Supervisor',
       email: 'sarah.supervisor@renewal.org',
       dateOfBirth: dobForAge(35),
-      isSupervisor: true,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Alex Age12',
       email: 'alex.age12@renewal.org',
       dateOfBirth: dobForAge(12),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Blake Age13',
       email: 'blake.age13@renewal.org',
       dateOfBirth: dobForAge(13),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Casey Age14',
       email: 'casey.age14@renewal.org',
       dateOfBirth: dobForAge(14),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Dana Age15',
       email: 'dana.age15@renewal.org',
       dateOfBirth: dobForAge(15),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Ellis Age16',
       email: 'ellis.age16@renewal.org',
       dateOfBirth: dobForAge(16),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Finley Age17',
       email: 'finley.age17@renewal.org',
       dateOfBirth: dobForAge(17),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Gray Adult',
       email: 'gray.adult@renewal.org',
       dateOfBirth: dobForAge(22),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
     {
       name: 'Harper BirthdaySoon',
       email: 'harper.birthdaysoon@renewal.org',
       dateOfBirth: dobForUpcomingBirthday(),
-      isSupervisor: false,
-      failedLoginAttempts: 0,
     },
   ];
 
   const insertedEmployees = await db.insert(employees).values(testEmployees).returning();
   console.log(`Created ${insertedEmployees.length} employees`);
 
-  const supervisor = insertedEmployees.find((e) => e.isSupervisor)!;
+  const supervisor = insertedEmployees.find((e) => e.email === 'sarah.supervisor@renewal.org')!;
 
   // Create parental consent documents for minors
   console.log('Creating employee documents...');
-  const minors = insertedEmployees.filter((e) => !e.isSupervisor && e.name !== 'Gray Adult');
+  const minors = insertedEmployees.filter(
+    (e) => e.email !== 'sarah.supervisor@renewal.org' && e.name !== 'Gray Adult'
+  );
 
   const documents = minors.map((minor) => ({
     employeeId: minor.id,

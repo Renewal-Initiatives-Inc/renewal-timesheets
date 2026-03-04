@@ -17,7 +17,6 @@ export interface Employee {
   name: string;
   email: string;
   dateOfBirth: string; // YYYY-MM-DD
-  isSupervisor: boolean;
   status: EmployeeStatus;
   createdAt: string;
   updatedAt: string;

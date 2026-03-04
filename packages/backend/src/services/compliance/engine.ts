@@ -96,7 +96,7 @@ export async function buildContext(timesheetId: string): Promise<ComplianceConte
     name: employee.name,
     email: employee.email,
     dateOfBirth: employee.dateOfBirth,
-    isSupervisor: employee.isSupervisor,
+    isSupervisor: false, // derived from Zitadel role, not DB
   };
 
   const documents: EmployeeDocument[] = docs.map((d) => ({

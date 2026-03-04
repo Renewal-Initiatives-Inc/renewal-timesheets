@@ -106,8 +106,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // User is authenticated only if OIDC is authenticated AND we have employee data
   const isAuthenticated = oidcAuth.isAuthenticated && !!employee;
 
-  // Supervisor = admin role from Zitadel OR isSupervisor flag from employee record
-  const isSupervisor = isAdmin || (employee?.isSupervisor ?? false);
+  // Supervisor = admin role from Zitadel (employee.isSupervisor always false)
+  const isSupervisor = isAdmin;
 
   const value: AuthContextValue = {
     user: employee,
