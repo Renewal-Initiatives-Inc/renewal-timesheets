@@ -133,18 +133,29 @@ export async function generateAlerts(): Promise<AlertWithKey[]> {
 }
 
 /**
- * Get all active supervisors.
+ * Get all supervisors. Uses SUPERVISOR_EMAILS env var (comma-separated)
+ * since supervisor role is managed in Zitadel, not in the local DB.
  */
 async function getSupervisors(): Promise<Array<{ id: string; name: string; email: string }>> {
-  const supervisors = await db.query.employees.findMany({
-    where: and(eq(employees.status, 'active'), eq(employees.isSupervisor, true)),
-  });
+  const supervisorEmails = process.env['SUPERVISOR_EMAILS'];
+  if (!supervisorEmails) {
+    console.warn('SUPERVISOR_EMAILS not set — no alert notifications will be sent');
+    return [];
+  }
 
-  return supervisors.map((s) => ({
-    id: s.id,
-    name: s.name,
-    email: s.email,
-  }));
+  const emails = supervisorEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const supervisors: Array<{ id: string; name: string; email: string }> = [];
+
+  for (const email of emails) {
+    const emp = await db.query.employees.findFirst({
+      where: eq(employees.email, email),
+    });
+    if (emp) {
+      supervisors.push({ id: emp.id, name: emp.name, email: emp.email });
+    }
+  }
+
+  return supervisors;
 }
 
 /**

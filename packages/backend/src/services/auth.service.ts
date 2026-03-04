@@ -29,13 +29,14 @@ export class AuthError extends Error {
 
 /**
  * Strip sensitive fields from employee record.
+ * Note: isSupervisor is always false here — derived from Zitadel role in middleware.
  */
 function toPublic(employee: Employee): EmployeePublic {
   return {
     id: employee.id,
     name: employee.name,
     email: employee.email,
-    isSupervisor: employee.isSupervisor,
+    isSupervisor: false,
     dateOfBirth: decryptDob(employee.dateOfBirth),
     status: employee.status,
     createdAt: employee.createdAt,

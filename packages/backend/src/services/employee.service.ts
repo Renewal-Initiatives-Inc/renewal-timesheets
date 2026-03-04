@@ -1,4 +1,4 @@
-import { eq, and, like, or, ne } from 'drizzle-orm';
+import { eq, and, like, or } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { calculateAge, getAgeBand, type AgeBand } from '../utils/age.js';
 import { decryptDob } from '../utils/encryption.js';
@@ -19,9 +19,6 @@ export class EmployeeError extends Error {
     public code:
       | 'AGE_TOO_YOUNG'
       | 'EMPLOYEE_NOT_FOUND'
-      | 'EMAIL_EXISTS'
-      | 'INVALID_STATUS'
-      | 'CANNOT_ARCHIVE_SELF'
   ) {
     super(message);
     this.name = 'EmployeeError';
@@ -30,13 +27,14 @@ export class EmployeeError extends Error {
 
 /**
  * Strip sensitive fields from employee record.
+ * Note: isSupervisor is always false here — derived from Zitadel role in middleware.
  */
 function toPublic(employee: Employee): EmployeePublic {
   return {
     id: employee.id,
     name: employee.name,
     email: employee.email,
-    isSupervisor: employee.isSupervisor,
+    isSupervisor: false,
     dateOfBirth: decryptDob(employee.dateOfBirth),
     status: employee.status,
     createdAt: employee.createdAt.toISOString(),
@@ -257,92 +255,7 @@ export async function getEmployeeById(employeeId: string): Promise<EmployeeWithD
   };
 }
 
-/**
- * Update an employee.
- * Note: Cannot change dateOfBirth or isSupervisor.
- *
- * @param employeeId - Employee UUID
- * @param data - Fields to update
- * @returns Updated employee
- */
-export async function updateEmployee(
-  employeeId: string,
-  data: { name?: string; email?: string }
-): Promise<EmployeePublic> {
-  const employee = await db.query.employees.findFirst({
-    where: eq(employees.id, employeeId),
-  });
-
-  if (!employee) {
-    throw new EmployeeError('Employee not found', 'EMPLOYEE_NOT_FOUND');
-  }
-
-  // Check for email uniqueness if changing email
-  if (data.email && data.email.toLowerCase() !== employee.email.toLowerCase()) {
-    const existingEmail = await db.query.employees.findFirst({
-      where: and(eq(employees.email, data.email.toLowerCase()), ne(employees.id, employeeId)),
-    });
-
-    if (existingEmail) {
-      throw new EmployeeError('An account with this email already exists', 'EMAIL_EXISTS');
-    }
-  }
-
-  const updates: Partial<typeof employees.$inferInsert> = {
-    updatedAt: new Date(),
-  };
-
-  if (data.name) {
-    updates.name = data.name;
-  }
-
-  if (data.email) {
-    updates.email = data.email.toLowerCase();
-  }
-
-  const [updated] = await db
-    .update(employees)
-    .set(updates)
-    .where(eq(employees.id, employeeId))
-    .returning();
-
-  return toPublic(updated!);
-}
-
-/**
- * Archive an employee (soft delete).
- *
- * @param employeeId - Employee UUID
- * @param requestingEmployeeId - ID of the employee making the request
- */
-export async function archiveEmployee(
-  employeeId: string,
-  requestingEmployeeId: string
-): Promise<void> {
-  if (employeeId === requestingEmployeeId) {
-    throw new EmployeeError('Cannot archive your own account', 'CANNOT_ARCHIVE_SELF');
-  }
-
-  const employee = await db.query.employees.findFirst({
-    where: eq(employees.id, employeeId),
-  });
-
-  if (!employee) {
-    throw new EmployeeError('Employee not found', 'EMPLOYEE_NOT_FOUND');
-  }
-
-  if (employee.status === 'archived') {
-    throw new EmployeeError('Employee is already archived', 'INVALID_STATUS');
-  }
-
-  await db
-    .update(employees)
-    .set({
-      status: 'archived',
-      updatedAt: new Date(),
-    })
-    .where(eq(employees.id, employeeId));
-}
+// updateEmployee and archiveEmployee removed — employee data managed in app-portal
 
 /**
  * Get all documents for an employee.

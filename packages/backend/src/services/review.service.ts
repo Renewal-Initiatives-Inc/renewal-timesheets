@@ -154,7 +154,7 @@ export async function getTimesheetForReview(
     id: employee.id,
     name: employee.name,
     email: employee.email,
-    isSupervisor: employee.isSupervisor,
+    isSupervisor: false, // derived from Zitadel role, not DB
     dateOfBirth: employee.dateOfBirth,
     status: employee.status as 'active' | 'archived',
     createdAt: employee.createdAt.toISOString(),

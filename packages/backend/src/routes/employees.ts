@@ -3,15 +3,12 @@ import { requireAuth, requireSupervisor } from '../middleware/auth.middleware.js
 import {
   listEmployees,
   getEmployeeById,
-  updateEmployee,
-  archiveEmployee,
   getEmployeeDocuments,
   getRequiredDocuments,
   EmployeeError,
 } from '../services/employee.service.js';
 import { getDocumentationStatus } from '../services/documentation-status.service.js';
-import { updateEmployeeSchema, employeeListQuerySchema } from '../validation/employee.schema.js';
-import { validate } from '../validation/common.js';
+import { employeeListQuerySchema } from '../validation/employee.schema.js';
 
 const router: Router = Router();
 
@@ -77,67 +74,7 @@ router.get('/:id', requireAuth, requireSupervisor, async (req: Request, res: Res
   }
 });
 
-/**
- * PATCH /api/employees/:id
- * Update an employee's name or email.
- * Cannot change dateOfBirth or isSupervisor after creation.
- */
-router.patch(
-  '/:id',
-  requireAuth,
-  requireSupervisor,
-  validate(updateEmployeeSchema),
-  async (req: Request, res: Response) => {
-    try {
-      const id = req.params['id'] as string;
-      const employee = await updateEmployee(id, req.body);
-
-      res.json({ employee });
-    } catch (error) {
-      if (error instanceof EmployeeError) {
-        const statusCode =
-          error.code === 'EMPLOYEE_NOT_FOUND' ? 404 : error.code === 'EMAIL_EXISTS' ? 409 : 400;
-        res.status(statusCode).json({
-          error: error.code,
-          message: error.message,
-        });
-        return;
-      }
-      throw error;
-    }
-  }
-);
-
-/**
- * DELETE /api/employees/:id
- * Archive an employee (soft delete).
- * Sets status to 'archived' - no hard delete.
- */
-router.delete('/:id', requireAuth, requireSupervisor, async (req: Request, res: Response) => {
-  try {
-    const id = req.params['id'] as string;
-    await archiveEmployee(id, req.employee!.id);
-
-    res.json({ message: 'Employee archived successfully' });
-  } catch (error) {
-    if (error instanceof EmployeeError) {
-      const statusCode =
-        error.code === 'EMPLOYEE_NOT_FOUND'
-          ? 404
-          : error.code === 'CANNOT_ARCHIVE_SELF'
-            ? 400
-            : error.code === 'INVALID_STATUS'
-              ? 400
-              : 400;
-      res.status(statusCode).json({
-        error: error.code,
-        message: error.message,
-      });
-      return;
-    }
-    throw error;
-  }
-});
+// PATCH /:id and DELETE /:id removed — employee data managed in app-portal
 
 /**
  * GET /api/employees/:id/documents
@@ -176,7 +113,7 @@ router.get('/:id/documentation-status', requireAuth, async (req: Request, res: R
   try {
     const id = req.params['id'] as string;
     // Allow employees to view their own status, supervisors can view anyone's
-    if (!req.employee!.isSupervisor && req.employee!.id !== id) {
+    if (!req.zitadelUser?.isAdmin && req.employee!.id !== id) {
       res.status(403).json({
         error: 'FORBIDDEN',
         message: 'You can only view your own documentation status',

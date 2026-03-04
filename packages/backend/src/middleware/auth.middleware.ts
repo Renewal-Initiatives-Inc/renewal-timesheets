@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
-import { getEmployeeByEmail, EmployeePublic } from '../services/auth.service.js';
+import { EmployeePublic } from '../services/auth.service.js';
 import { db } from '../db/index.js';
 import { employees } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { decryptDob } from '../utils/encryption.js';
-import { portalDb, portalEmployees } from '../db/app-portal.js';
+import { syncEmployeeFromPortal } from '../services/employee-sync.service.js';
 
 // Zitadel configuration
 // Trim to remove any accidental newlines from environment variables (common with Vercel)
@@ -33,80 +33,6 @@ interface ZitadelJWTPayload extends JWTPayload {
   email_verified?: boolean;
   name?: string;
   'urn:zitadel:iam:org:project:roles'?: Record<string, unknown>;
-}
-
-// Userinfo response from Zitadel
-interface ZitadelUserInfo {
-  sub: string;
-  email?: string;
-  email_verified?: boolean;
-  name?: string;
-  preferred_username?: string;
-}
-
-/**
- * Look up a user's email from app-portal's employees table via Zitadel user ID.
- * This is the canonical User→Employee mapping (fast, DB-only, no network call).
- */
-async function lookupEmailFromPortal(zitadelSub: string): Promise<{ email?: string; name?: string } | null> {
-  if (!portalDb) return null;
-
-  try {
-    const [portalUser] = await portalDb
-      .select({
-        email: portalEmployees.email,
-        name: portalEmployees.name,
-      })
-      .from(portalEmployees)
-      .where(eq(portalEmployees.zitadelUserId, zitadelSub))
-      .limit(1);
-
-    if (!portalUser) return null;
-
-    return {
-      email: portalUser.email || undefined,
-      name: portalUser.name || undefined,
-    };
-  } catch (error) {
-    console.error('Failed to look up user from app-portal:', error);
-    return null;
-  }
-}
-
-/**
- * Fetch user info from Zitadel userinfo endpoint.
- * Last-resort fallback when app-portal lookup doesn't yield an email.
- */
-async function fetchUserInfo(accessToken: string): Promise<ZitadelUserInfo | null> {
-  if (!ZITADEL_ISSUER) return null;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch(`${ZITADEL_ISSUER}/oidc/v1/userinfo`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch userinfo:', response.status, response.statusText);
-      return null;
-    }
-
-    return (await response.json()) as ZitadelUserInfo;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('fetchUserInfo timed out after 5s');
-    } else {
-      console.error('Error fetching userinfo:', error);
-    }
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 // Extend Express Request to include employee and Zitadel user info
@@ -138,50 +64,51 @@ function extractToken(req: Request): string | null {
 }
 
 /**
- * Get employee by Zitadel ID, or link by email if not yet linked.
+ * Resolve employee from local DB, syncing from app-portal if needed.
+ *
+ * Flow:
+ * 1. Look up by zitadel_id (fast path, no cross-DB call)
+ * 2. If miss, sync from app-portal (creates/updates local cache)
+ * 3. Return EmployeePublic or null
  */
-async function getEmployeeByZitadelId(
+async function resolveEmployee(
   zitadelSub: string,
-  email?: string
+  email?: string,
+  name?: string
 ): Promise<EmployeePublic | null> {
-  // First, try to find by zitadel_id
-  const [employeeByZitadel] = await db
+  // Fast path: find by zitadel_id in local DB
+  const [localEmployee] = await db
     .select()
     .from(employees)
     .where(eq(employees.zitadelId, zitadelSub))
     .limit(1);
 
-  if (employeeByZitadel) {
+  if (localEmployee) {
     return {
-      id: employeeByZitadel.id,
-      name: employeeByZitadel.name,
-      email: employeeByZitadel.email,
-      dateOfBirth: decryptDob(employeeByZitadel.dateOfBirth),
-      status: employeeByZitadel.status,
-      isSupervisor: employeeByZitadel.isSupervisor,
-      createdAt: employeeByZitadel.createdAt,
-      zitadelId: employeeByZitadel.zitadelId,
+      id: localEmployee.id,
+      name: localEmployee.name,
+      email: localEmployee.email,
+      dateOfBirth: decryptDob(localEmployee.dateOfBirth),
+      status: localEmployee.status,
+      isSupervisor: false, // always derived from Zitadel, not DB
+      createdAt: localEmployee.createdAt,
+      zitadelId: localEmployee.zitadelId,
     };
   }
 
-  // If not found by zitadel_id, try to link by email
-  if (email) {
-    const employeeByEmail = await getEmployeeByEmail(email);
-    if (employeeByEmail && !employeeByEmail.zitadelId) {
-      // Link this employee to the Zitadel account
-      await db
-        .update(employees)
-        .set({ zitadelId: zitadelSub })
-        .where(eq(employees.id, employeeByEmail.id));
-
-      console.log(`Linked employee ${employeeByEmail.id} to Zitadel user ${zitadelSub}`);
-      return employeeByEmail;
-    }
-    // Return the employee even if already linked to a different Zitadel account
-    // (edge case - could indicate duplicate accounts)
-    if (employeeByEmail) {
-      return employeeByEmail;
-    }
+  // Sync from app-portal (handles email-based linking and new employee creation)
+  const synced = await syncEmployeeFromPortal(zitadelSub, email, name);
+  if (synced) {
+    return {
+      id: synced.id,
+      name: synced.name,
+      email: synced.email,
+      dateOfBirth: decryptDob(synced.dateOfBirth),
+      status: synced.status,
+      isSupervisor: false,
+      createdAt: synced.createdAt,
+      zitadelId: synced.zitadelId,
+    };
   }
 
   return null;
@@ -189,7 +116,7 @@ async function getEmployeeByZitadelId(
 
 /**
  * Middleware that requires a valid Zitadel authentication token.
- * Validates the JWT against Zitadel's JWKS and links to employee record.
+ * Validates the JWT against Zitadel's JWKS and resolves employee record.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = extractToken(req);
@@ -233,33 +160,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    let email = zitadelPayload.email;
-    let name = zitadelPayload.name;
+    const email = zitadelPayload.email;
+    const name = zitadelPayload.name;
 
-    // Fast path: look up employee by zitadel_id first (no network call)
-    let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
-
-    // Fallback: employee not found locally — resolve email for auto-linking
-    if (!employee && !email) {
-      // Prefer app-portal DB lookup (fast, reliable, canonical user→employee mapping)
-      const portalUser = await lookupEmailFromPortal(zitadelPayload.sub!);
-      if (portalUser?.email) {
-        email = portalUser.email;
-        name = name || portalUser.name;
-      } else {
-        // Last resort: Zitadel userinfo endpoint (slow, may time out)
-        const userInfo = await fetchUserInfo(token);
-        if (userInfo) {
-          email = userInfo.email;
-          name = name || userInfo.name;
-        }
-      }
-    }
-
-    // Try to link by email if we resolved one
-    if (!employee && email) {
-      employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
-    }
+    // Resolve employee: local cache → sync from portal if needed
+    const employee = await resolveEmployee(zitadelPayload.sub!, email, name);
 
     // Attach Zitadel user info to request
     req.zitadelUser = {
@@ -271,10 +176,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     };
 
     if (employee) {
-      // Attach employee to request, override isSupervisor with admin role from Zitadel
       req.employee = {
         ...employee,
-        isSupervisor: employee.isSupervisor || isAdmin,
+        isSupervisor: isAdmin, // derived exclusively from Zitadel role
       };
     }
 
@@ -294,7 +198,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
- * Middleware that requires supervisor role.
+ * Middleware that requires supervisor role (Zitadel admin).
  * Must be used after requireAuth middleware.
  */
 export async function requireSupervisor(
@@ -310,10 +214,7 @@ export async function requireSupervisor(
     return;
   }
 
-  // Check both employee.isSupervisor and Zitadel admin role
-  const isSupervisor = req.employee.isSupervisor || req.zitadelUser?.isAdmin;
-
-  if (!isSupervisor) {
+  if (!req.zitadelUser?.isAdmin) {
     res.status(403).json({
       error: 'Forbidden',
       message: 'Supervisor access required',
@@ -347,30 +248,10 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     const roles = Object.keys(rolesClaim);
     const isAdmin = roles.includes('admin');
 
-    let email = zitadelPayload.email;
-    let name = zitadelPayload.name;
+    const email = zitadelPayload.email;
+    const name = zitadelPayload.name;
 
-    // Fast path: look up employee by zitadel_id first (no network call)
-    let employee = await getEmployeeByZitadelId(zitadelPayload.sub!);
-
-    // Fallback: resolve email for auto-linking
-    if (!employee && !email) {
-      const portalUser = await lookupEmailFromPortal(zitadelPayload.sub!);
-      if (portalUser?.email) {
-        email = portalUser.email;
-        name = name || portalUser.name;
-      } else {
-        const userInfo = await fetchUserInfo(token);
-        if (userInfo) {
-          email = userInfo.email;
-          name = name || userInfo.name;
-        }
-      }
-    }
-
-    if (!employee && email) {
-      employee = await getEmployeeByZitadelId(zitadelPayload.sub!, email);
-    }
+    const employee = await resolveEmployee(zitadelPayload.sub!, email, name);
 
     req.zitadelUser = {
       sub: zitadelPayload.sub!,
@@ -380,10 +261,10 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       isAdmin,
     };
 
-    if (employee && employee.status === 'active') {
+    if (employee) {
       req.employee = {
         ...employee,
-        isSupervisor: employee.isSupervisor || isAdmin,
+        isSupervisor: isAdmin,
       };
     }
   } catch {
