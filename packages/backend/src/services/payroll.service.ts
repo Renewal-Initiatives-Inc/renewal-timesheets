@@ -3,6 +3,7 @@ import { db, schema } from '../db/index.js';
 import type { PayrollRecord } from '@renewal/types';
 import Decimal from 'decimal.js';
 import { getAgeBand, type AgeBand } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 import { getSalariedWeeklyPay, type ExemptStatus } from './compensation.service.js';
 
 // Type alias for Decimal instances
@@ -398,7 +399,7 @@ export async function listPayrollRecords(
     employee: {
       id: record.employee.id,
       name: record.employee.name,
-      dateOfBirth: record.employee.dateOfBirth,
+      dateOfBirth: decryptDob(record.employee.dateOfBirth),
     },
     timesheet: {
       id: record.timesheet.id,

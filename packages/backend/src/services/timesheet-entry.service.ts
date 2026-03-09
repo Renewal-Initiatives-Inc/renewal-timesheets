@@ -4,6 +4,7 @@ import type { TimesheetEntry } from '@renewal/types';
 import { isDefaultSchoolDay, timeToMinutes } from '../utils/timezone.js';
 import { getWeekDates } from './timesheet.service.js';
 import { calculateAge } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 
 const { timesheetEntries, timesheets, taskCodes } = schema;
 
@@ -121,8 +122,9 @@ async function validateHourLimits(
     return { valid: false, error: 'Timesheet or employee not found' };
   }
 
-  // Calculate employee age on work date
-  const age = calculateAge(timesheet.employee.dateOfBirth, workDate);
+  // Calculate employee age on work date (DOB is AES-256-GCM encrypted in DB)
+  const dob = decryptDob(timesheet.employee.dateOfBirth);
+  const age = calculateAge(dob, workDate);
   const limits = getHourLimitsForAge(age);
 
   // Get existing entries for this timesheet
@@ -652,8 +654,9 @@ export async function previewEntryCompliance(
     throw new TimesheetEntryError('Timesheet not found', 'TIMESHEET_NOT_FOUND');
   }
 
-  // Calculate employee age on work date
-  const age = calculateAge(timesheet.employee.dateOfBirth, entry.workDate);
+  // Calculate employee age on work date (DOB is AES-256-GCM encrypted in DB)
+  const dob = decryptDob(timesheet.employee.dateOfBirth);
+  const age = calculateAge(dob, entry.workDate);
   const limits = getHourLimitsForAge(age);
   const isMinor = age < 18;
 

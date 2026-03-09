@@ -5,6 +5,7 @@ import { listEmployees } from '../services/employee.service.js';
 import { getDocumentationStatus } from '../services/documentation-status.service.js';
 import { db, schema } from '../db/index.js';
 import { calculateAge } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 import type { DashboardAlert, AlertType } from '@renewal/types';
 
 const { employees, timesheets } = schema;
@@ -41,7 +42,9 @@ router.get('/alerts', requireAuth, requireSupervisor, async (req: Request, res: 
   const todayStr = today.toISOString().split('T')[0]!;
 
   for (const employee of employeeList) {
-    const age = calculateAge(employee.dateOfBirth, todayStr);
+    // Decrypt DOB (AES-256-GCM encrypted in DB)
+    const plaintextDob = decryptDob(employee.dateOfBirth);
+    const age = calculateAge(plaintextDob, todayStr);
 
     // Skip adults - no documentation requirements
     if (age >= 18) continue;
@@ -94,7 +97,7 @@ router.get('/alerts', requireAuth, requireSupervisor, async (req: Request, res: 
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const dob = new Date(employee.dateOfBirth + 'T00:00:00');
+      const dob = new Date(plaintextDob + 'T00:00:00');
       const birthday14 = new Date(dob);
       birthday14.setFullYear(birthday14.getFullYear() + 14);
 

@@ -7,6 +7,7 @@ import {
   sendMissingDocumentAlert,
 } from './email.service.js';
 import { calculateAge } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 import type { DashboardAlert, AlertType } from '@renewal/types';
 
 const { employees, alertNotificationLogs } = schema;
@@ -43,7 +44,9 @@ export async function generateAlerts(): Promise<AlertWithKey[]> {
   const todayStr = today.toISOString().split('T')[0]!;
 
   for (const employee of employeeList) {
-    const age = calculateAge(employee.dateOfBirth, todayStr);
+    // Decrypt DOB (AES-256-GCM encrypted in DB)
+    const plaintextDob = decryptDob(employee.dateOfBirth);
+    const age = calculateAge(plaintextDob, todayStr);
 
     // Skip adults - no documentation requirements
     if (age >= 18) continue;
@@ -105,7 +108,7 @@ export async function generateAlerts(): Promise<AlertWithKey[]> {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const dob = new Date(employee.dateOfBirth + 'T00:00:00');
+      const dob = new Date(plaintextDob + 'T00:00:00');
       const birthday14 = new Date(dob);
       birthday14.setFullYear(birthday14.getFullYear() + 14);
 
