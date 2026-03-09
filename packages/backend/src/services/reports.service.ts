@@ -1,6 +1,7 @@
 import { eq, and, lte, gte, desc, sql, inArray } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { getAgeBand, type AgeBand } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 import type { ComplianceDetails } from '../db/schema/compliance.js';
 
 const { complianceCheckLogs, timesheets, employees, payrollRecords, taskCodeRates } = schema;
@@ -349,7 +350,7 @@ export async function getTimesheetHistoryReport(
         rate: findEffectiveRate(e.taskCodeId, e.workDate),
         notes: e.notes,
       })),
-      dateOfBirth: t.employee.dateOfBirth,
+      dateOfBirth: decryptDob(t.employee.dateOfBirth),
     };
   });
 

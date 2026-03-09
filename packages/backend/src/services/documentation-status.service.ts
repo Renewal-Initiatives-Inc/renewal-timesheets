@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { calculateAge } from '../utils/age.js';
+import { decryptDob } from '../utils/encryption.js';
 import { getRequiredDocuments, EmployeeError } from './employee.service.js';
 import type { DocumentationStatus, DocumentType } from '@renewal/types';
 
@@ -27,9 +28,9 @@ export async function getDocumentationStatus(employeeId: string): Promise<Docume
     throw new EmployeeError('Employee not found', 'EMPLOYEE_NOT_FOUND');
   }
 
-  // Calculate age and required documents
+  // Calculate age and required documents (DOB is AES-256-GCM encrypted in DB)
   const today = new Date().toISOString().split('T')[0]!;
-  const age = calculateAge(employee.dateOfBirth, today);
+  const age = calculateAge(decryptDob(employee.dateOfBirth), today);
   const required = getRequiredDocuments(age);
 
   // Get all documents for this employee

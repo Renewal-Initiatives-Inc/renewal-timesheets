@@ -14,6 +14,7 @@ import { db, schema } from '../../db/index.js';
 import { getTimesheetWithEntries, type TimesheetEntryWithTaskCode } from '../timesheet.service.js';
 import { getAgeBand, getWeeklyAges, type AgeBand } from '../../utils/age.js';
 import { getTodayET } from '../../utils/timezone.js';
+import { decryptDob } from '../../utils/encryption.js';
 import type {
   ComplianceContext,
   ComplianceEmployee,
@@ -90,12 +91,15 @@ export async function buildContext(timesheetId: string): Promise<ComplianceConte
     where: eq(employeeDocuments.employeeId, employee.id),
   });
 
+  // Decrypt DOB (AES-256-GCM encrypted in DB)
+  const plaintextDob = decryptDob(employee.dateOfBirth);
+
   // Convert to public types
   const complianceEmployee: ComplianceEmployee = {
     id: employee.id,
     name: employee.name,
     email: employee.email,
-    dateOfBirth: employee.dateOfBirth,
+    dateOfBirth: plaintextDob,
     isSupervisor: false, // derived from Zitadel role, not DB
   };
 
@@ -111,7 +115,7 @@ export async function buildContext(timesheetId: string): Promise<ComplianceConte
   }));
 
   // Compute per-day ages
-  const weeklyAges = getWeeklyAges(employee.dateOfBirth, timesheet.weekStartDate);
+  const weeklyAges = getWeeklyAges(plaintextDob, timesheet.weekStartDate);
   const dailyAges = new Map<string, number>();
   const dailyAgeBands = new Map<string, AgeBand>();
 
